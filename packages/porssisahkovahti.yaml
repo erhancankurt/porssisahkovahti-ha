@@ -1,0 +1,126 @@
+# Pörssisähkövahti: Suomen pörssisähkön 15 min hinnat (ALV 25,5 %) Home Assistantiin.
+# Lähde: https://porssisahkovahti.fi/api  (ei avainta; lähdemaininta: linkki porssisahkovahti.fi)
+# Asennus: kopioi tiedosto kansioon config/packages/ ja käynnistä HA uudelleen.
+
+rest:
+  - resource: https://porssisahkovahti.fi/api/v1/nyt.json
+    scan_interval: 900
+    timeout: 20
+    sensor:
+      - name: "Pörssisähkö nyt"
+        unique_id: porssisahkovahti_nyt
+        value_template: "{{ value_json.hinta }}"
+        unit_of_measurement: "snt/kWh"
+        state_class: measurement
+        icon: mdi:flash
+        json_attributes:
+          - hinta_alv0
+          - tunnin_keskihinta
+          - paivan_keskihinta
+          - hintataso
+          - seuraava_halvin
+          - vartti
+          - paivitetty
+
+  - resource: https://porssisahkovahti.fi/api/v1/hinnat.json?paiva=tanaan
+    scan_interval: 900
+    timeout: 20
+    sensor:
+      - name: "Pörssisähkö tänään"
+        unique_id: porssisahkovahti_tanaan
+        value_template: "{{ value_json.keskihinta }}"
+        unit_of_measurement: "snt/kWh"
+        state_class: measurement
+        icon: mdi:chart-bar
+        json_attributes:
+          - paiva
+          - halvin
+          - kallein
+          - hinnat
+          - paivitetty
+
+  - resource: https://porssisahkovahti.fi/api/v1/hinnat.json?paiva=huomenna
+    scan_interval: 900
+    timeout: 20
+    sensor:
+      - name: "Pörssisähkö huomenna"
+        unique_id: porssisahkovahti_huomenna
+        value_template: "{{ value_json.keskihinta | default('unknown') }}"
+        unit_of_measurement: "snt/kWh"
+        state_class: measurement
+        icon: mdi:chart-bar
+        json_attributes:
+          - paiva
+          - tila
+          - halvin
+          - kallein
+          - hinnat
+
+  - resource: https://porssisahkovahti.fi/api/v1/halvimmat.json?tuntia=2,4,8
+    scan_interval: 900
+    timeout: 20
+    sensor:
+      - name: "Pörssisähkö halvin 2h"
+        unique_id: porssisahkovahti_halvin_2h
+        device_class: timestamp
+        icon: mdi:clock-start
+        value_template: "{{ (value_json.jaksot | selectattr('tuntia', 'eq', 2) | map(attribute='alkaa') | first) | default('unknown') }}"
+        json_attributes_path: "$.jaksot[?(@.tuntia==2)]"
+        json_attributes:
+          - paattyy
+          - keskihinta
+          - saasto_pct_vs_nyt
+      - name: "Pörssisähkö halvin 4h"
+        unique_id: porssisahkovahti_halvin_4h
+        device_class: timestamp
+        icon: mdi:clock-start
+        value_template: "{{ (value_json.jaksot | selectattr('tuntia', 'eq', 4) | map(attribute='alkaa') | first) | default('unknown') }}"
+        json_attributes_path: "$.jaksot[?(@.tuntia==4)]"
+        json_attributes:
+          - paattyy
+          - keskihinta
+          - saasto_pct_vs_nyt
+      - name: "Pörssisähkö halvin 8h"
+        unique_id: porssisahkovahti_halvin_8h
+        device_class: timestamp
+        icon: mdi:clock-start
+        value_template: "{{ (value_json.jaksot | selectattr('tuntia', 'eq', 8) | map(attribute='alkaa') | first) | default('unknown') }}"
+        json_attributes_path: "$.jaksot[?(@.tuntia==8)]"
+        json_attributes:
+          - paattyy
+          - keskihinta
+          - saasto_pct_vs_nyt
+
+template:
+  - binary_sensor:
+      - name: "Pörssisähkö halvin 2h käynnissä"
+        unique_id: porssisahkovahti_halvin_2h_kaynnissa
+        icon: mdi:cash-check
+        state: >-
+          {% set s = states('sensor.porssisahko_halvin_2h') %}
+          {% set e = state_attr('sensor.porssisahko_halvin_2h', 'paattyy') %}
+          {{ s not in ['unknown', 'unavailable'] and e is not none
+             and now() >= as_datetime(s) and now() < as_datetime(e) }}
+      - name: "Pörssisähkö halvin 4h käynnissä"
+        unique_id: porssisahkovahti_halvin_4h_kaynnissa
+        icon: mdi:cash-check
+        state: >-
+          {% set s = states('sensor.porssisahko_halvin_4h') %}
+          {% set e = state_attr('sensor.porssisahko_halvin_4h', 'paattyy') %}
+          {{ s not in ['unknown', 'unavailable'] and e is not none
+             and now() >= as_datetime(s) and now() < as_datetime(e) }}
+      - name: "Pörssisähkö halvin 8h käynnissä"
+        unique_id: porssisahkovahti_halvin_8h_kaynnissa
+        icon: mdi:cash-check
+        state: >-
+          {% set s = states('sensor.porssisahko_halvin_8h') %}
+          {% set e = state_attr('sensor.porssisahko_halvin_8h', 'paattyy') %}
+          {{ s not in ['unknown', 'unavailable'] and e is not none
+             and now() >= as_datetime(s) and now() < as_datetime(e) }}
+      - name: "Pörssisähkö halpaa"
+        unique_id: porssisahkovahti_halpaa
+        icon: mdi:cash
+        state: >-
+          {% set p = states('sensor.porssisahko_nyt') | float(none) %}
+          {% set a = state_attr('sensor.porssisahko_nyt', 'paivan_keskihinta') | float(none) %}
+          {{ p is not none and a is not none and p < a }}

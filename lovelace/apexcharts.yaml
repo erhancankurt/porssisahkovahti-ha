@@ -1,0 +1,22 @@
+# apexcharts-card (HACS): tämän päivän ja huomisen 96 vartin hinnat
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Pörssisähkö tänään ja huomenna (snt/kWh)
+graph_span: 2d
+span:
+  start: day
+now:
+  show: true
+  label: nyt
+series:
+  - entity: sensor.porssisahko_tanaan
+    name: Tänään
+    type: column
+    data_generator: |
+      return (entity.attributes.hinnat || []).map(h => [new Date(h.alkaa).getTime(), h.hinta]);
+  - entity: sensor.porssisahko_huomenna
+    name: Huomenna
+    type: column
+    data_generator: |
+      return (entity.attributes.hinnat || []).map(h => [new Date(h.alkaa).getTime(), h.hinta]);

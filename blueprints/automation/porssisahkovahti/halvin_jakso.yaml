@@ -1,0 +1,52 @@
+blueprint:
+  name: Pörssisähkövahti – kytke laite päälle halvimmalla jaksolla
+  description: >-
+    Kytkee valitun laitteen (kytkin, pistorasia, lämmitin) päälle, kun Pörssisähkövahdin halvin
+    2/4/8 tunnin jakso alkaa, ja pois, kun se päättyy. Vaatii packages/porssisahkovahti.yaml-paketin.
+  domain: automation
+  source_url: https://github.com/erhancankurt/porssisahkovahti-ha/blob/main/blueprints/automation/porssisahkovahti/halvin_jakso.yaml
+  input:
+    jakso:
+      name: Halvin jakso
+      description: Mikä jakso ohjaa laitetta
+      default: binary_sensor.porssisahko_halvin_4h_kaynnissa
+      selector:
+        entity:
+          domain: binary_sensor
+    laite:
+      name: Ohjattava laite
+      selector:
+        target:
+          entity:
+            domain:
+              - switch
+              - input_boolean
+              - climate
+              - light
+
+mode: restart
+
+trigger:
+  - platform: state
+    entity_id: !input jakso
+    to: "on"
+    id: alkaa
+  - platform: state
+    entity_id: !input jakso
+    to: "off"
+    id: paattyy
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: alkaa
+        sequence:
+          - service: homeassistant.turn_on
+            target: !input laite
+      - conditions:
+          - condition: trigger
+            id: paattyy
+        sequence:
+          - service: homeassistant.turn_off
+            target: !input laite
